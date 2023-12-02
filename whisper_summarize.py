@@ -1,33 +1,52 @@
-
+import streamlit as st
 import openai
-#https://medium.com/gitconnected/using-the-whisper-api-to-transcribe-audio-files-45fb36d1aa1b
-
 import whisper
-# brew install ffmpeg # you may need to install
+import os
 
-openai.api_key = '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'
+# Configura aquí tu clave API de OpenAI
+openai.api_key = 'my-key'
 model = whisper.load_model("base")
 
-file_path = 'MA1.m4a'
+def transcribe_audio(model, audio_file):
+    # Guardar el archivo de audio temporalmente
+    temp_file_path = "temp_audio." + audio_file.name.split('.')[-1]
+    with open(temp_file_path, "wb") as f:
+        f.write(audio_file.getbuffer())
 
-def transcribe_audio(model, file_path):
-    transcript = model.transcribe(file_path)
+    # Transcribir el audio
+    transcript = model.transcribe(temp_file_path)
+
+    # Eliminar el archivo temporal
+    os.remove(temp_file_path)
+
     return transcript['text']
 
 def CustomChatGPT(user_input):
-    messages = [{"role": "system", "content": "You are an office administer, summarize the text in key points"}]
+    messages = [{"role": "system", "content": "You are an office administrator, summarize the text in key points"}]
     messages.append({"role": "user", "content": user_input})
     response = openai.ChatCompletion.create(
-        model = "gpt-3.5-turbo",
-        messages = messages
+        model="gpt-3.5-turbo",
+        messages=messages
     )
     ChatGPT_reply = response["choices"][0]["message"]["content"]
     return ChatGPT_reply
 
+# Interfaz de usuario de Streamlit
+st.title('Evidencia de Competencias NLP: Resumen de Audio - Alejandro Murcia')
 
-transcription = transcribe_audio(model, file_path)
-summary = CustomChatGPT(transcription)
-print(summary)
+uploaded_file = st.file_uploader("Carga un archivo de audio", type=['mp3', 'wav', 'm4a'])
 
+if uploaded_file is not None:
+    if st.button('Transcribir Audio'):
+        st.text("Transcribiendo...")
+        transcription = transcribe_audio(model, uploaded_file)
+        st.text_area("Transcripción:", transcription, height=150)
+        st.session_state['transcription'] = transcription
 
-
+    if st.button('Resumir Texto'):
+        if 'transcription' in st.session_state and st.session_state['transcription']:
+            st.text("Resumiendo...")
+            summary = CustomChatGPT(st.session_state['transcription'])
+            st.text_area("Resumen:", summary, height=150)
+        else:
+            st.warning("Primero transcribe un audio para resumir.")
